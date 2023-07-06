@@ -59,49 +59,8 @@ resource "aws_iam_policy_attachment" "k8s" {
   depends_on = [aws_iam_role.k8s]
   name       = "role-policy"
   roles      = [aws_iam_role.k8s.name]
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-}
-
-resource "aws_iam_policy_attachment" "k8s1" {
-  depends_on = [aws_iam_role.k8s]
-  name       = "role-policy"
-  roles      = [aws_iam_role.k8s.name]
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
-}
-
-resource "aws_iam_policy_attachment" "k8s2" {
-  depends_on = [aws_iam_role.k8s]
-  name       = "role-policy"
-  roles      = [aws_iam_role.k8s.name]
-  policy_arn = "arn:aws:iam::aws:policy/IAMFullAccess"
-}
-
-resource "aws_iam_policy_attachment" "k8s3" {
-  depends_on = [aws_iam_role.k8s]
-  name       = "role-policy"
-  roles      = [aws_iam_role.k8s.name]
-  policy_arn = "arn:aws:iam::aws:policy/AmazonVPCFullAccess"
-}
-
-resource "aws_iam_policy_attachment" "k8s4" {
-  depends_on = [aws_iam_role.k8s]
-  name       = "role-policy"
-  roles      = [aws_iam_role.k8s.name]
-  policy_arn = "arn:aws:iam::aws:policy/AmazonRoute53FullAccess"
-}
-
-resource "aws_iam_policy_attachment" "k8s5" {
-  depends_on = [aws_iam_role.k8s]
-  name       = "role-policy"
-  roles      = [aws_iam_role.k8s.name]
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSQSFullAccess"
-}
-
-resource "aws_iam_policy_attachment" "k8s6" {
-  depends_on = [aws_iam_role.k8s]
-  name       = "role-policy"
-  roles      = [aws_iam_role.k8s.name]
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEventBridgeFullAccess"
+  for_each   = toset(var.iam_role)
+  policy_arn = each.value
 }
 
 resource "aws_iam_instance_profile" "profile" {
@@ -130,8 +89,16 @@ resource "aws_route53_zone" "my_hosted_zone" {
   }
 }
 
+resource "random_string" "example" {
+  length  = 1
+  special = false
+  upper   = false
+  lower   = true
+  numeric = false
+}
+
 resource "aws_s3_bucket" "my_s3" {
-  bucket = "useast1m.k8s.uct.in"
+  bucket = "useast1${random_string.example.id}.uct.in"
 }
 
 resource "aws_s3_bucket_versioning" "my_s3" {
@@ -175,18 +142,20 @@ resource "null_resource" "ubuntu_server" {
     agent       = false
     type        = "ssh"
     user        = "ansadmin"
-    password    = "test123"
+    password    = var.passwd
     host        = element(aws_instance.ubuntu_server.*.public_ip, 0)
     private_key = file("${path.module}/key.pem")
   }
 
   provisioner "remote-exec" {
     inline = [
+      "echo 'export CLUSTER_NAME=${aws_s3_bucket.my_s3.bucket}' > /home/ansadmin/.bash_profile",
+      "echo 'export KOPS_STATE_STORE=s3://${aws_s3_bucket.my_s3.bucket}' >> /home/ansadmin/.bash_profile",
       "sleep 60",
       "source /home/ansadmin/.bash_profile",
-      "kops create cluster --name=useast1m.k8s.uct.in --state=s3://useast1m.k8s.uct.in --cloud=aws --zones=us-east-1a --node-count=2 --node-size=t2.medium --ssh-public-key=/home/ansadmin/.ssh/id_rsa.pub --dns-zone=uct.in --dns private",
-      "kops update cluster --name useast1m.k8s.uct.in --state=s3://useast1m.k8s.uct.in --yes --admin",
-      "kops validate cluster --state=s3://useast1m.k8s.uct.in --wait 10m"
+      "kops create cluster --name=${aws_s3_bucket.my_s3.bucket} --state=s3://${aws_s3_bucket.my_s3.bucket} --cloud=aws --zones=us-east-1a --node-count=2 --node-size=t2.medium --ssh-public-key=/home/ansadmin/.ssh/id_rsa.pub --dns-zone=uct.in --dns private",
+      "kops update cluster --name ${aws_s3_bucket.my_s3.bucket} --state=s3://${aws_s3_bucket.my_s3.bucket} --yes --admin",
+      "kops validate cluster --state=s3://${aws_s3_bucket.my_s3.bucket} --wait 10m"
     ]
     on_failure = continue
   }

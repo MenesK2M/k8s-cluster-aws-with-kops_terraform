@@ -28,13 +28,6 @@ sudo chmod 600 /home/ansadmin/.aws/config
 sudo chown -R ansadmin:ansadmin /home/ansadmin/.aws/
 sudo echo -e "[default]\nregion = us-east-1\noutput = json" > /home/ansadmin/.aws/config
 
-#sudo touch /home/ansadmin/.bash_profile
-#sudo chown ansadmin:ansadmin /home/ansadmin/.bash_profile
-#sudo chmod 664 /home/ansadmin/.bash_profile
-
-echo 'export CLUSTER_NAME=useast1m.k8s.uct.in' > /home/ansadmin/.bash_profile
-echo 'export KOPS_STATE_STORE=s3://useast1m.k8s.uct.in' >> /home/ansadmin/.bash_profile
-
 sudo mkdir /home/ansadmin/.ssh
 ssh-keygen -t rsa -f /home/ansadmin/.ssh/id_rsa -N ''
 sudo chown -R ansadmin: /home/ansadmin/.ssh
