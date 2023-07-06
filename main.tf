@@ -98,7 +98,7 @@ resource "random_string" "my_s3" {
 }
 
 resource "aws_s3_bucket" "my_s3" {
-  bucket = "useast1${random_string.example.id}.uct.in"
+  bucket = "useast1${random_string.my_s3.id}.uct.in"
 }
 
 resource "aws_s3_bucket_versioning" "my_s3" {
