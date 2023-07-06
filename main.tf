@@ -89,7 +89,7 @@ resource "aws_route53_zone" "my_hosted_zone" {
   }
 }
 
-resource "random_string" "example" {
+resource "random_string" "my_s3" {
   length  = 1
   special = false
   upper   = false
