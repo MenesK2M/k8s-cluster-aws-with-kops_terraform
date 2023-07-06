@@ -60,7 +60,7 @@ resource "aws_iam_policy_attachment" "k8s" {
   name       = "role-policy"
   roles      = [aws_iam_role.k8s.name]
   for_each   = toset(var.iam_role)
-  policy_arn = each.value
+  policy_arn = "arn:aws:iam::aws:policy/${each.value}"
 }
 
 resource "aws_iam_instance_profile" "profile" {
@@ -98,7 +98,8 @@ resource "random_string" "my_s3" {
 }
 
 resource "aws_s3_bucket" "my_s3" {
-  bucket = "useast1${random_string.my_s3.id}.uct.in"
+  bucket        = "useast1${random_string.my_s3.id}.k8s.uct.in"
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_versioning" "my_s3" {
@@ -149,13 +150,15 @@ resource "null_resource" "ubuntu_server" {
 
   provisioner "remote-exec" {
     inline = [
-      "echo 'export CLUSTER_NAME=${aws_s3_bucket.my_s3.bucket}' > /home/ansadmin/.bash_profile",
+      "sleep 90",
+      "chmod +x /home/ansadmin/.bash_profile",
+      "echo 'export CLUSTER_NAME=${aws_s3_bucket.my_s3.bucket}' >> /home/ansadmin/.bash_profile",
       "echo 'export KOPS_STATE_STORE=s3://${aws_s3_bucket.my_s3.bucket}' >> /home/ansadmin/.bash_profile",
-      "sleep 60",
-      "source /home/ansadmin/.bash_profile",
-      "kops create cluster --name=${aws_s3_bucket.my_s3.bucket} --state=s3://${aws_s3_bucket.my_s3.bucket} --cloud=aws --zones=us-east-1a --node-count=2 --node-size=t2.medium --ssh-public-key=/home/ansadmin/.ssh/id_rsa.pub --dns-zone=uct.in --dns private",
-      "kops update cluster --name ${aws_s3_bucket.my_s3.bucket} --state=s3://${aws_s3_bucket.my_s3.bucket} --yes --admin",
-      "kops validate cluster --state=s3://${aws_s3_bucket.my_s3.bucket} --wait 10m"
+      "/home/ansadmin/.bash_profile",
+      "chmod -x /home/ansadmin/.bash_profile",
+      "kops create cluster --name=`head -1 /home/ansadmin/.bash_profile | cut -d = -f 2` --state=`tail -1 /home/ansadmin/.bash_profile | cut -d = -f 2` --cloud=aws --zones=us-east-1a --node-count=2 --node-size=t2.medium --ssh-public-key=/home/ansadmin/.ssh/id_rsa.pub --dns-zone=uct.in --dns private",
+      "kops update cluster --name `head -1 /home/ansadmin/.bash_profile | cut -d = -f 2` --state=`tail -1 /home/ansadmin/.bash_profile | cut -d = -f 2` --yes --admin",
+      "kops validate cluster --state=`tail -1 /home/ansadmin/.bash_profile | cut -d = -f 2` --wait 10m"
     ]
     on_failure = continue
   }
